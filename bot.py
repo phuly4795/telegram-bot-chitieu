@@ -6,8 +6,10 @@ from database import (
     get_balance, update_balance, set_balance
 )
 import re
+import os
 
-TOKEN = "8159142699:AAGxtGXKYICIF1mPRKzkI9Kn373BQd6XNBI"
+TOKEN = os.environ.get("BOT_TOKEN")
+# TOKEN = "8159142699:AAGxtGXKYICIF1mPRKzkI9Kn373BQd6XNBI"
 
 init_db()
 
