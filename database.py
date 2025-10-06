@@ -23,9 +23,22 @@ def init_db():
     conn.commit()
     conn.close()
 
-def ensure_user_exists(user_id):
+def ensure_user_exists(user_id, full_name=None, username=None):
     conn = sqlite3.connect('expenses.db')
     c = conn.cursor()
+    
+    # Tạo bảng users (nếu chưa có)
+    c.execute('''CREATE TABLE IF NOT EXISTS users (
+                    user_id INTEGER PRIMARY KEY,
+                    full_name TEXT,
+                    username TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )''')
+
+    # Cập nhật hoặc thêm mới user
+    c.execute('''INSERT OR IGNORE INTO users (user_id, full_name, username)
+                 VALUES (?, ?, ?)''', (user_id, full_name, username))
+    
     c.execute("INSERT OR IGNORE INTO balance (user_id, total) VALUES (?, 0)", (user_id,))
     conn.commit()
     conn.close()

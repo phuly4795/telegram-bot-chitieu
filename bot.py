@@ -2,8 +2,10 @@ import re
 import os
 from datetime import datetime, timedelta
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, MessageHandler,
+    ContextTypes, filters
+)
 from database import (
     init_db, ensure_user_exists, add_expense, get_expenses,
     get_sum_by_range, get_balance, set_balance, update_balance
@@ -42,10 +44,11 @@ def parse_date_from_text(text):
 #  LỆNH BOT
 # ============================================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
+    user = update.message.from_user
+    user_id = user.id
     ensure_user_exists(user_id)
     msg = (
-        "💰 *Bot Quản Lý Chi Tiêu Cá Nhân*\n\n"
+        f"💰 *Bot Quản Lý Chi Tiêu của {user.full_name}*\n\n"
         "Các lệnh hỗ trợ:\n"
         "• /them [số tiền] [lý do]\n"
         "• /danhsach – xem chi gần đây\n"
@@ -169,13 +172,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"✅ {reason}: {amount:,.0f}đ\n💵 Còn lại: {bal:,.0f}đ")
 
 # ============================================
-#  CHẠY BOT
+#  KHỞI ĐỘNG BOT
 # ============================================
 if __name__ == "__main__":
     init_db()
-    TOKEN = os.environ.get("BOT_TOKEN")
-
+    TOKEN = os.environ.get("BOT_TOKEN", "8159142699:AAGxtGXKYICIF1mPRKzkI9Kn373BQd6XNBI")
     app = ApplicationBuilder().token(TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("them", add))
     app.add_handler(CommandHandler("danhsach", list_expenses))
@@ -183,5 +186,21 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("sodu", balance))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-    print("🤖 Bot quản lý chi tiêu đang chạy...")
-    app.run_polling()
+    # Tự nhận biết môi trường
+    if os.environ.get("RENDER") == "true":
+        print("🌐 Đang chạy trên Render (webhook mode)...")
+        port = int(os.environ.get("PORT", 8080))
+        render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=port,
+            url_path=TOKEN,
+            webhook_url=f"https://{render_hostname}/{TOKEN}",
+        )
+    else:
+        print("💻 Đang chạy local (polling mode)...")
+        # Xóa webhook cũ nếu có, tránh lỗi Conflict
+        import requests
+        requests.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook")
+        app.run_polling()
