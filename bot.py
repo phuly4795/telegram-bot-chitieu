@@ -188,22 +188,3 @@ if __name__ == "__main__":
     
     print("🤖 Bot quản lý chi tiêu đang chạy...")
     app.run_polling()
-    # Tự nhận biết môi trường
-    # if os.environ.get("RENDER") == "true":
-    #     print("🌐 Đang chạy trên Render (webhook mode)...")
-    #     port = int(os.environ.get("PORT", 8080))
-    #     render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
-
-    #     app.run_webhook(
-    #         listen="0.0.0.0",
-    #         port=port,
-    #         url_path=TOKEN,
-    #         webhook_url=f"https://{render_hostname}/{TOKEN}",
-    #     )
-    # else:
-    #     print("💻 Đang chạy local (polling mode)...")
-    #     # Xóa webhook cũ nếu có, tránh lỗi Conflict
-    #     import requests
-    #     requests.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook")
-    #     app.run_polling()
-
