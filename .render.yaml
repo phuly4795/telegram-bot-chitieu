@@ -1,0 +1,9 @@
+services:
+  - type: worker
+    name: chi-tieu-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: BOT_TOKEN
+        value: <8159142699:AAGxtGXKYICIF1mPRKzkI9Kn373BQd6XNBI>
