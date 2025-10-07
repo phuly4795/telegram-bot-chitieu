@@ -85,14 +85,29 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def list_expenses(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     ensure_user_exists(user_id)
-    data = get_expenses(user_id)
+    data = get_expenses(user_id)  # [(amount, reason, date, type), ...]
+
     if not data:
-        await update.message.reply_text("📭 Chưa có chi tiêu nào.")
+        await update.message.reply_text("📭 Chưa có giao dịch nào.")
         return
-    msg = "📋 *Chi tiêu gần đây:*\n\n"
-    for i, (amount, reason, created_at) in enumerate(data, 1):
-        date = created_at.split(" ")[0]
-        msg += f"{i}. 💵 {amount:,.0f}đ - {reason} ({date})\n"
+
+    msg = "📋 *Danh sách giao dịch gần đây:*\n\n"
+    for i, (amount, reason, date, tran_type) in enumerate(data, 1):
+        # Xác định icon và nhãn
+        if tran_type.lower() == "thu":
+            icon = "💰"
+            label = "Thu nhập"
+        else:
+            icon = "💸"
+            label = "Chi tiêu"
+
+        msg += (
+            f"{i}. {icon} *{label}*\n"
+            f"   ├─ Lý do: {reason}\n"
+            f"   ├─ Số tiền: {amount:,.0f}đ\n"
+            f"   └─ Ngày: {date}\n\n"
+        )
+
     await update.message.reply_text(msg, parse_mode="Markdown")
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):

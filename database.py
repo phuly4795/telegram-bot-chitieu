@@ -74,19 +74,20 @@ def add_expense(user_id, amount, reason, date=None, type="chi"):
     conn.commit()
     conn.close()
 
-def get_expenses(user_id, limit=10):
+def get_expenses(user_id):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT amount, reason, to_char(date, 'YYYY-MM-DD HH24:MI') AS date
+        SELECT amount, reason, date, type
         FROM expenses
-        WHERE user_id=%s
+        WHERE user_id = %s
         ORDER BY id DESC
-        LIMIT %s
-    """, (user_id, limit))
+        LIMIT 10
+    """, (user_id,))
     data = cur.fetchall()
+    cur.close()
     conn.close()
-    return [(d['amount'], d['reason'], d['date']) for d in data]
+    return data
 
 def get_sum_by_range(user_id, start, end):
     conn = get_connection()
