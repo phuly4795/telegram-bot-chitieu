@@ -8,7 +8,6 @@ def get_connection():
     return psycopg2.connect(DB_URL, cursor_factory=RealDictCursor)
 
 def ensure_column_exists(table, column, column_def):
-    """Kiểm tra và tự thêm cột nếu chưa có"""
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
@@ -27,7 +26,6 @@ def init_db():
     conn = get_connection()
     cur = conn.cursor()
 
-    # Tạo bảng users
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             user_id BIGINT PRIMARY KEY,
@@ -37,7 +35,6 @@ def init_db():
         )
     """)
 
-    # Tạo bảng expenses
     cur.execute("""
         CREATE TABLE IF NOT EXISTS expenses (
             id SERIAL PRIMARY KEY,
@@ -52,7 +49,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-    # Đảm bảo có đủ các cột mới
     ensure_column_exists("expenses", "type", "TEXT DEFAULT 'chi'")
 
 def ensure_user_exists(user_id, full_name=None, username=None):
@@ -96,11 +92,12 @@ def get_sum_by_range(user_id, start, end):
     conn = get_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT COALESCE(SUM(amount), 0)
+        SELECT COALESCE(SUM(amount), 0) AS total
         FROM expenses
         WHERE user_id=%s AND date::date BETWEEN %s AND %s AND type='chi'
     """, (user_id, start, end))
-    total = cur.fetchone()[0] or 0
+    row = cur.fetchone()
+    total = row["total"] if row and "total" in row else 0
     conn.close()
     return total
 
@@ -110,7 +107,7 @@ def get_balance(user_id):
     cur.execute("SELECT balance FROM users WHERE user_id=%s", (user_id,))
     result = cur.fetchone()
     conn.close()
-    return result[0] if result else 0
+    return result["balance"] if result and "balance" in result else 0
 
 def set_balance(user_id, amount):
     conn = get_connection()
