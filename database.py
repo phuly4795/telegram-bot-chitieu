@@ -1,159 +1,127 @@
-import sqlite3
-from datetime import datetime, timedelta
+import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
-DB_PATH = "expenses.db"
+DB_URL = os.environ.get("DB_URL")
 
-# =====================================================
-#  HỖ TRỢ: Tự động đảm bảo bảng và cột tồn tại
-# =====================================================
-def ensure_column_exists(table, column, col_type, default=None):
-    """Tự động thêm cột vào bảng nếu chưa có."""
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+def get_connection():
+    return psycopg2.connect(DB_URL, cursor_factory=RealDictCursor)
 
-    c.execute(f"PRAGMA table_info({table})")
-    columns = [row[1] for row in c.fetchall()]
-
-    if column not in columns:
-        default_clause = f" DEFAULT '{default}'" if default is not None else ""
-        try:
-            c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}{default_clause}")
-            print(f"✅ Đã thêm cột mới: {table}.{column}")
-        except Exception as e:
-            print(f"⚠️ Không thể thêm cột {column} vào {table}: {e}")
-
-    conn.commit()
+def ensure_column_exists(table, column, column_def):
+    """Kiểm tra và tự thêm cột nếu chưa có"""
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = %s AND column_name = %s
+    """, (table, column))
+    exists = cur.fetchone()
+    if not exists:
+        print(f"🧱 Thêm cột mới: {table}.{column}")
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_def}")
+        conn.commit()
     conn.close()
 
-
-# =====================================================
-#  KHỞI TẠO CƠ SỞ DỮ LIỆU
-# =====================================================
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
+    conn = get_connection()
+    cur = conn.cursor()
 
-    # Bảng chi tiêu / thu nhập
-    c.execute('''CREATE TABLE IF NOT EXISTS expenses (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER,
-                    amount REAL,
-                    reason TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )''')
+    # Tạo bảng users
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id BIGINT PRIMARY KEY,
+            full_name TEXT,
+            username TEXT,
+            balance NUMERIC DEFAULT 0
+        )
+    """)
 
-    # Bảng số dư
-    c.execute('''CREATE TABLE IF NOT EXISTS balance (
-                    user_id INTEGER PRIMARY KEY,
-                    total REAL DEFAULT 0
-                )''')
-
-    # Bảng người dùng
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-                    user_id INTEGER PRIMARY KEY,
-                    full_name TEXT,
-                    username TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )''')
+    # Tạo bảng expenses
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS expenses (
+            id SERIAL PRIMARY KEY,
+            user_id BIGINT REFERENCES users(user_id),
+            amount NUMERIC,
+            reason TEXT,
+            date TIMESTAMP DEFAULT NOW(),
+            type TEXT DEFAULT 'chi'
+        )
+    """)
 
     conn.commit()
     conn.close()
 
-    # ✅ Đảm bảo cột mới tồn tại (auto migrate)
-    ensure_column_exists("expenses", "type", "TEXT", default="chi")
+    # Đảm bảo có đủ các cột mới
+    ensure_column_exists("expenses", "type", "TEXT DEFAULT 'chi'")
 
-
-# =====================================================
-#  NGƯỜI DÙNG
-# =====================================================
 def ensure_user_exists(user_id, full_name=None, username=None):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-
-    c.execute('''INSERT OR IGNORE INTO users (user_id, full_name, username)
-                 VALUES (?, ?, ?)''', (user_id, full_name, username))
-    c.execute("INSERT OR IGNORE INTO balance (user_id, total) VALUES (?, 0)", (user_id,))
-
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO users (user_id, full_name, username)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (user_id) DO NOTHING
+    """, (user_id, full_name, username))
     conn.commit()
     conn.close()
 
-
-# =====================================================
-#  GIAO DỊCH (CHI / THU)
-# =====================================================
 def add_expense(user_id, amount, reason, date=None, type="chi"):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-
-    if date:
-        c.execute(
-            "INSERT INTO expenses (user_id, amount, reason, created_at, type) VALUES (?, ?, ?, ?, ?)",
-            (user_id, amount, reason, date, type)
-        )
-    else:
-        c.execute(
-            "INSERT INTO expenses (user_id, amount, reason, type) VALUES (?, ?, ?, ?)",
-            (user_id, amount, reason, type)
-        )
-
-    # Cập nhật số dư: chi thì trừ, thu thì cộng
-    if type == "chi":
-        c.execute("UPDATE balance SET total = total - ? WHERE user_id = ?", (amount, user_id))
-    elif type == "thu":
-        c.execute("UPDATE balance SET total = total + ? WHERE user_id = ?", (amount, user_id))
-
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO expenses (user_id, amount, reason, date, type)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (user_id, amount, reason, date, type))
+    delta = -amount if type == "chi" else amount
+    cur.execute("UPDATE users SET balance = balance + %s WHERE user_id=%s", (delta, user_id))
     conn.commit()
     conn.close()
-
 
 def get_expenses(user_id, limit=10):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute(
-        "SELECT amount, reason, created_at, type FROM expenses WHERE user_id = ? ORDER BY id DESC LIMIT ?",
-        (user_id, limit)
-    )
-    data = c.fetchall()
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT amount, reason, to_char(date, 'YYYY-MM-DD HH24:MI') AS date
+        FROM expenses
+        WHERE user_id=%s
+        ORDER BY id DESC
+        LIMIT %s
+    """, (user_id, limit))
+    data = cur.fetchall()
     conn.close()
-    return data
+    return [(d['amount'], d['reason'], d['date']) for d in data]
 
-
-def get_sum_by_range(user_id, start_date, end_date, type_filter="chi"):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute(
-        """SELECT SUM(amount) FROM expenses 
-           WHERE user_id = ? AND type = ? AND DATE(created_at) BETWEEN ? AND ?""",
-        (user_id, type_filter, start_date, end_date)
-    )
-    result = c.fetchone()[0]
+def get_sum_by_range(user_id, start, end):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT COALESCE(SUM(amount), 0)
+        FROM expenses
+        WHERE user_id=%s AND date::date BETWEEN %s AND %s AND type='chi'
+    """, (user_id, start, end))
+    total = cur.fetchone()[0] or 0
     conn.close()
-    return result or 0
+    return total
 
-
-# =====================================================
-#  SỐ DƯ
-# =====================================================
 def get_balance(user_id):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT total FROM balance WHERE user_id = ?", (user_id,))
-    row = c.fetchone()
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT balance FROM users WHERE user_id=%s", (user_id,))
+    result = cur.fetchone()
     conn.close()
-    return row[0] if row else 0
-
+    return result[0] if result else 0
 
 def set_balance(user_id, amount):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("UPDATE balance SET total = ? WHERE user_id = ?", (amount, user_id))
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET balance=%s WHERE user_id=%s", (amount, user_id))
     conn.commit()
     conn.close()
 
-
-def update_balance(user_id, amount):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("UPDATE balance SET total = total + ? WHERE user_id = ?", (amount, user_id))
+def update_balance(user_id, delta):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET balance = balance + %s WHERE user_id=%s", (delta, user_id))
     conn.commit()
     conn.close()
