@@ -11,6 +11,7 @@ def init_db():
                     user_id INTEGER,
                     amount REAL,
                     reason TEXT,
+                    type TEXT DEFAULT 'chi',
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )''')
 
@@ -44,16 +45,19 @@ def ensure_user_exists(user_id, full_name=None, username=None):
     conn.close()
 
 # ---------- Chi tiêu ----------
-def add_expense(user_id, amount, reason, date=None):
-    conn = sqlite3.connect('expenses.db')
+def add_expense(user_id, amount, reason, date=None, type="chi"):
+    conn = sqlite3.connect("expenses.db")
     c = conn.cursor()
     if date:
-        c.execute("INSERT INTO expenses (user_id, amount, reason, created_at) VALUES (?, ?, ?, ?)",
-                  (user_id, amount, reason, date))
+        c.execute("INSERT INTO expenses (user_id, amount, reason, type, created_at) VALUES (?, ?, ?, ?, ?)",
+                  (user_id, amount, reason, type, date))
     else:
-        c.execute("INSERT INTO expenses (user_id, amount, reason) VALUES (?, ?, ?)",
-                  (user_id, amount, reason))
-    c.execute("UPDATE balance SET total = total - ? WHERE user_id = ?", (amount, user_id))
+        c.execute("INSERT INTO expenses (user_id, amount, reason, type) VALUES (?, ?, ?, ?)",
+                  (user_id, amount, reason, type))
+    if type == "chi":
+        c.execute("UPDATE users SET balance = balance - ? WHERE user_id = ?", (amount, user_id))
+    else:
+        c.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
     conn.commit()
     conn.close()
 

@@ -50,7 +50,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = (
         f"💰 *Bot Quản Lý Chi Tiêu của {user.full_name}*\n\n"
         "Các lệnh hỗ trợ:\n"
-        "• /them [số tiền] [lý do]\n"
+        "• /chi [số tiền] [lý do]\n"
+        "• /thu [số tiền] [lý do]\n"
         "• /danhsach – xem chi gần đây\n"
         "• /tongchi [ngay|tuan|thang] – thống kê\n"
         "• /sodu – xem hoặc chỉnh số dư\n\n"
@@ -64,7 +65,7 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = context.args
 
     if len(args) == 0:
-        await update.message.reply_text("⚠️ Dùng cú pháp: /them [số tiền] [lý do]")
+        await update.message.reply_text("⚠️ Dùng cú pháp: /chi [số tiền] [lý do]")
         return
 
     amount = parse_amount(args[0])
@@ -171,6 +172,29 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bal = get_balance(user_id)
     await update.message.reply_text(f"✅ {reason}: {amount:,.0f}đ\n💵 Còn lại: {bal:,.0f}đ")
 
+async def add_income(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    ensure_user_exists(user_id)
+    args = context.args
+
+    if len(args) == 0:
+        await update.message.reply_text("⚠️ Dùng cú pháp: /thu [số tiền] [lý do]")
+        return
+
+    amount = parse_amount(args[0])
+    if not amount:
+        await update.message.reply_text("⚠️ Không hiểu số tiền.")
+        return
+
+    text = " ".join(args[1:])
+    date = parse_date_from_text(text)
+    reason = re.sub(r"hôm\s?(nay|qua|kia)", "", text, flags=re.IGNORECASE).strip() or "Không ghi lý do"
+    date_str = date.strftime("%Y-%m-%d %H:%M:%S") if date else None
+
+    add_expense(user_id, amount, reason, date_str, type="thu")
+    bal = get_balance(user_id)
+    await update.message.reply_text(f"✅ Thu nhập: {reason} +{amount:,.0f}đ\n💰 Số dư: {bal:,.0f}đ")
+
 # ============================================
 #  KHỞI ĐỘNG BOT
 # ============================================
@@ -184,7 +208,8 @@ if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("them", add))
+    app.add_handler(CommandHandler("chi", add))
+    app.add_handler(CommandHandler("thu", add_income))
     app.add_handler(CommandHandler("danhsach", list_expenses))
     app.add_handler(CommandHandler("tongchi", stats))
     app.add_handler(CommandHandler("sodu", balance))
