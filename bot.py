@@ -252,12 +252,12 @@ if __name__ == "__main__":
     print("🌐 Đang khởi động bot với webhook...")
 
     # chạy server
-    # # ✅ Chạy webhook (Render yêu cầu phải lắng nghe port)
-    # app.run_webhook(
-    #     listen="0.0.0.0",
-    #     port=int(os.environ.get("PORT", 5000)),
-    #     url_path=TOKEN,
-    #     webhook_url=f"https://{render_hostname}/{TOKEN}",
-    # )
+    # ✅ Chạy webhook (Render yêu cầu phải lắng nghe port)
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000)),
+        url_path=TOKEN,
+        webhook_url=f"https://{render_hostname}/{TOKEN}",
+    )
     # chạy local
-    app.run_polling()
+    # app.run_polling()
