@@ -104,7 +104,7 @@ async def list_expenses(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg += (
             f"{i}. {icon} *{label}*\n"
             f"   ├─ Lý do: {reason}\n"
-            f"   ├─ Số tiền: {amount}đ\n"
+            f"   ├─ Số tiền: {amount:,.0f}đ\n"
             f"   └─ Ngày: {date}\n\n"
         )
 

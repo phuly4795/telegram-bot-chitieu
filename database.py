@@ -2,7 +2,7 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-DB_URL = os.environ.get("DB_URL")
+DB_URL = os.environ.get("DB_URL", 'postgresql://expenses_db_k42y_user:kr21N5mt1X1gv7hH3CcVJi8kJa3j9PoZ@dpg-d3ia55mmcj7s7392o2pg-a.singapore-postgres.render.com/expenses_db_k42y')
 
 def get_connection():
     return psycopg2.connect(DB_URL, cursor_factory=RealDictCursor)
@@ -81,13 +81,14 @@ def get_expenses(user_id):
         SELECT amount, reason, date, type
         FROM expenses
         WHERE user_id = %s
-        ORDER BY id DESC
+        ORDER BY date DESC
         LIMIT 10
     """, (user_id,))
-    data = cur.fetchall()
+    rows = cur.fetchall()
     cur.close()
     conn.close()
-    return data
+    # Trả về đúng dạng [(amount, reason, date, type), ...]
+    return [(row["amount"], row["reason"], row["date"], row["type"]) for row in rows]
 
 def get_sum_by_range(user_id, start, end):
     conn = get_connection()
