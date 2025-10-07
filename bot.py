@@ -38,7 +38,7 @@ def parse_date_from_text(text):
         return today - timedelta(days=2)
     elif "hôm nay" in text or "nay" in text:
         return today
-    return None
+    return today
 
 # ============================================
 #  LỆNH BOT
@@ -82,7 +82,7 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = " ".join(args[1:])
     date = parse_date_from_text(text)
     reason = re.sub(r"hôm\s?(nay|qua|kia)", "", text, flags=re.IGNORECASE).strip() or "Không ghi lý do"
-    date_str = date.strftime("%Y-%m-%d %H:%M:%S") if date else None
+    date_str = date.strftime("%Y-%m-%d %H:%M:%S") if date else datetime.now()
 
     add_expense(user_id, amount, reason, date_str)
     bal = get_balance(user_id)
@@ -196,7 +196,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reason = re.sub(match.group(), "", text).strip() or "Không ghi lý do"
     date = parse_date_from_text(text)
-    date_str = date.strftime("%Y-%m-%d %H:%M:%S") if date else None
+    date_str = date.strftime("%Y-%m-%d %H:%M:%S") if date else datetime.now()
 
     add_expense(user_id, amount, reason, date_str)
     bal = get_balance(user_id)
