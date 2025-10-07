@@ -177,6 +177,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == "__main__":
     init_db()
     TOKEN = os.environ.get("BOT_TOKEN", "8159142699:AAGxtGXKYICIF1mPRKzkI9Kn373BQd6XNBI")
+
+    # ✅ Lấy hostname Render để đăng ký webhook
+    render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -185,6 +189,13 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("tongchi", stats))
     app.add_handler(CommandHandler("sodu", balance))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    
-    print("🤖 Bot quản lý chi tiêu đang chạy...")
-    app.run_polling()
+
+    print("🌐 Đang khởi động bot với webhook...")
+
+    # ✅ Chạy webhook (Render yêu cầu phải lắng nghe port)
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000)),
+        url_path=TOKEN,
+        webhook_url=f"https://{render_hostname}/{TOKEN}",
+    )
