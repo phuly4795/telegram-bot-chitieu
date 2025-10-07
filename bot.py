@@ -46,7 +46,9 @@ def parse_date_from_text(text):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     user_id = user.id
-    ensure_user_exists(user_id)
+    username = user.username
+    full_name = user.full_name
+    ensure_user_exists(user_id, full_name, username)
     msg = (
         f"💰 *Bot Quản Lý Chi Tiêu của {user.full_name}*\n\n"
         "Các lệnh hỗ trợ:\n"
@@ -60,8 +62,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg, parse_mode="Markdown")
 
 async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    ensure_user_exists(user_id)
+    user = update.message.from_user
+    user_id = user.id
+    username = user.username
+    full_name = user.full_name
+    ensure_user_exists(user_id, full_name, username)
+    
     args = context.args
 
     if len(args) == 0:
@@ -83,8 +89,11 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"✅ {reason}: {amount:,.0f}đ\n💵 Còn lại: {bal:,.0f}đ")
 
 async def list_expenses(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    ensure_user_exists(user_id)
+    user = update.message.from_user
+    user_id = user.id
+    username = user.username
+    full_name = user.full_name
+    ensure_user_exists(user_id, full_name, username)
     data = get_expenses(user_id)  # [(amount, reason, date, type), ...]
 
     if not data:
@@ -111,8 +120,11 @@ async def list_expenses(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg, parse_mode="Markdown")
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    ensure_user_exists(user_id)
+    user = update.message.from_user
+    user_id = user.id
+    username = user.username
+    full_name = user.full_name
+    ensure_user_exists(user_id, full_name, username)
     now = datetime.now()
     arg = context.args[0].lower() if context.args else "ngay"
 
@@ -135,8 +147,11 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"📊 Tổng chi {label}: {total:,.0f}đ")
 
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    ensure_user_exists(user_id)
+    user = update.message.from_user
+    user_id = user.id
+    username = user.username
+    full_name = user.full_name
+    ensure_user_exists(user_id, full_name, username)
     args = context.args
 
     if not args:
@@ -188,8 +203,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"✅ {reason}: {amount:,.0f}đ\n💵 Còn lại: {bal:,.0f}đ")
 
 async def add_income(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    ensure_user_exists(user_id)
+    user = update.message.from_user
+    user_id = user.id
+    username = user.username
+    full_name = user.full_name
+    ensure_user_exists(user_id, full_name, username)
+    
     args = context.args
 
     if len(args) == 0:
@@ -204,7 +223,7 @@ async def add_income(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = " ".join(args[1:])
     date = parse_date_from_text(text)
     reason = re.sub(r"hôm\s?(nay|qua|kia)", "", text, flags=re.IGNORECASE).strip() or "Không ghi lý do"
-    date_str = date.strftime("%Y-%m-%d %H:%M:%S") if date else None
+    date_str = date.strftime("%Y-%m-%d %H:%M:%S") if date else datetime.now()
 
     add_expense(user_id, amount, reason, date_str, type="thu")
     bal = get_balance(user_id)
@@ -232,10 +251,13 @@ if __name__ == "__main__":
 
     print("🌐 Đang khởi động bot với webhook...")
 
-    # ✅ Chạy webhook (Render yêu cầu phải lắng nghe port)
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=int(os.environ.get("PORT", 5000)),
-        url_path=TOKEN,
-        webhook_url=f"https://{render_hostname}/{TOKEN}",
-    )
+    # chạy server
+    # # ✅ Chạy webhook (Render yêu cầu phải lắng nghe port)
+    # app.run_webhook(
+    #     listen="0.0.0.0",
+    #     port=int(os.environ.get("PORT", 5000)),
+    #     url_path=TOKEN,
+    #     webhook_url=f"https://{render_hostname}/{TOKEN}",
+    # )
+    # chạy local
+    app.run_polling()
